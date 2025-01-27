@@ -2,12 +2,12 @@ package com.kaba4cow.net.tcp;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
 import com.kaba4cow.net.core.NetNode;
-import com.kaba4cow.net.core.NetPacketReceiver;
+import com.kaba4cow.net.core.NetPacket;
+import com.kaba4cow.net.core.NetPacketHandler;
 import com.kaba4cow.net.core.NetPeer;
 import com.kaba4cow.net.core.NetState;
 
@@ -15,7 +15,7 @@ import com.kaba4cow.net.core.NetState;
  * Represents a TCP client that connects to a TCP server, sends data, and handles incoming packets. The client can initiate a
  * connection to a server, manage its state, and process data received from the server.
  */
-public abstract class TCPClient extends NetNode<SocketChannel> implements NetPeer, NetPacketReceiver {
+public abstract class TCPClient extends NetNode<SocketChannel> implements NetPeer, NetPacketHandler {
 
 	/**
 	 * Constructs a TCPClient with the specified address and buffer size.
@@ -38,9 +38,10 @@ public abstract class TCPClient extends NetNode<SocketChannel> implements NetPee
 	protected abstract void onConnected() throws IOException;
 
 	@Override
-	public TCPClient send(byte[] bytes) throws IOException {
+	public TCPClient send(NetPacket packet) throws IOException {
 		requireState(NetState.RUNNING);
-		getChannel().write(ByteBuffer.wrap(bytes));
+		getChannel().write(packet.asByteBuffer());
+		onPacketSent(packet);
 		return this;
 	}
 
@@ -71,10 +72,12 @@ public abstract class TCPClient extends NetNode<SocketChannel> implements NetPee
 					} else {
 						byte[] bytes = new byte[getBuffer().flip().remaining()];
 						getBuffer().get(bytes);
-						onPacketReceived(bytes);
+						onPacketReceived(NetPacket.fromByteArray(bytes));
 					}
 				} catch (IOException exception) {
 					close();
+				} catch (Exception exception) {
+					onError(exception);
 				}
 		getSelector().selectedKeys().clear();
 	}

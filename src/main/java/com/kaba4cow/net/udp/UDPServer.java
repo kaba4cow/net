@@ -2,15 +2,16 @@ package com.kaba4cow.net.udp;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.util.Iterator;
 import java.util.Objects;
 
 import com.kaba4cow.net.core.NetNode;
+import com.kaba4cow.net.core.NetPacket;
+import com.kaba4cow.net.core.NetPacketHandler;
 import com.kaba4cow.net.core.NetPeer;
-import com.kaba4cow.net.core.NetPeerPacketReceiver;
+import com.kaba4cow.net.core.NetPeerPacketHandler;
 import com.kaba4cow.net.core.NetState;
 import com.kaba4cow.net.udp.UDPServer.UDPPeer;
 
@@ -19,7 +20,7 @@ import com.kaba4cow.net.udp.UDPServer.UDPPeer;
  * peers. The server listens on a specified address and handles incoming UDP packets by processing them through packet reception
  * callbacks.
  */
-public abstract class UDPServer extends NetNode<DatagramChannel> implements NetPeerPacketReceiver<UDPPeer> {
+public abstract class UDPServer extends NetNode<DatagramChannel> implements NetPeerPacketHandler<UDPPeer> {
 
 	/**
 	 * Constructs a UDPServer with the specified address and buffer size.
@@ -53,7 +54,7 @@ public abstract class UDPServer extends NetNode<DatagramChannel> implements NetP
 				SocketAddress address = getChannel().receive(getBuffer());
 				byte[] bytes = new byte[getBuffer().flip().remaining()];
 				getBuffer().get(bytes);
-				onPacketReceived(new UDPPeer(address), bytes);
+				onPacketReceived(new UDPPeer(address), NetPacket.fromByteArray(bytes));
 			}
 		}
 	}
@@ -66,7 +67,7 @@ public abstract class UDPServer extends NetNode<DatagramChannel> implements NetP
 	/**
 	 * Represents a peer connected to the UDP server, providing methods to send data to the peer.
 	 */
-	public final class UDPPeer implements NetPeer {
+	public final class UDPPeer implements NetPeer, NetPacketHandler {
 
 		private final SocketAddress address;
 
@@ -80,9 +81,20 @@ public abstract class UDPServer extends NetNode<DatagramChannel> implements NetP
 		}
 
 		@Override
-		public UDPPeer send(byte[] bytes) throws IOException {
+		public void onPacketSent(NetPacket packet) throws IOException {
+			getEnclosingInstance().onPacketSent(this, packet);
+		}
+
+		@Override
+		public void onPacketReceived(NetPacket packet) throws IOException {
+			getEnclosingInstance().onPacketReceived(this, packet);
+		}
+
+		@Override
+		public UDPPeer send(NetPacket packet) throws IOException {
 			requireState(NetState.RUNNING);
-			getChannel().send(ByteBuffer.wrap(bytes), address);
+			getChannel().send(packet.asByteBuffer(), address);
+			onPacketSent(packet);
 			return this;
 		}
 

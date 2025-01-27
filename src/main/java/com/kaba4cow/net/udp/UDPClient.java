@@ -2,13 +2,13 @@ package com.kaba4cow.net.udp;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.util.Iterator;
 
 import com.kaba4cow.net.core.NetNode;
-import com.kaba4cow.net.core.NetPacketReceiver;
+import com.kaba4cow.net.core.NetPacket;
+import com.kaba4cow.net.core.NetPacketHandler;
 import com.kaba4cow.net.core.NetPeer;
 import com.kaba4cow.net.core.NetState;
 
@@ -16,7 +16,7 @@ import com.kaba4cow.net.core.NetState;
  * Represents a UDP client that connects to a server, sends data, and processes received packets. The client sends packets to a
  * specified server and processes responses from the server through packet reception callbacks.
  */
-public abstract class UDPClient extends NetNode<DatagramChannel> implements NetPeer, NetPacketReceiver {
+public abstract class UDPClient extends NetNode<DatagramChannel> implements NetPeer, NetPacketHandler {
 
 	/**
 	 * Constructs a UDPClient with the specified address and buffer size.
@@ -31,9 +31,10 @@ public abstract class UDPClient extends NetNode<DatagramChannel> implements NetP
 	}
 
 	@Override
-	public UDPClient send(byte[] bytes) throws IOException {
+	public UDPClient send(NetPacket packet) throws IOException {
 		requireState(NetState.RUNNING);
-		getChannel().send(ByteBuffer.wrap(bytes), getAddress());
+		getChannel().send(packet.asByteBuffer(), getAddress());
+		onPacketSent(packet);
 		return this;
 	}
 
@@ -56,7 +57,7 @@ public abstract class UDPClient extends NetNode<DatagramChannel> implements NetP
 				getChannel().receive(getBuffer());
 				byte[] bytes = new byte[getBuffer().flip().remaining()];
 				getBuffer().get(bytes);
-				onPacketReceived(bytes);
+				onPacketReceived(NetPacket.fromByteArray(bytes));
 			}
 		}
 	}

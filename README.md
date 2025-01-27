@@ -19,8 +19,10 @@ A lightweight, flexible Java network library providing abstractions for UDP and 
 
 ## Key Components
 
-### Core Interfaces
+### Core Classes
 
+- `NetNode`: Represents a network node such as a server or a client
+- `NetPacket`: Represents a packet transmitted via the network
 - `NetPeer`: Represents a network peer capable of sending data
 - `NetPacketReceiver`: Handles packet reception events
 - `NetPeerPacketReceiver`: Handles peer-specific packet reception
@@ -84,8 +86,8 @@ public class ExampleTCPServer extends TCPServer {
 	}
 
 	@Override
-	public void onPacketReceived(TCPPeer peer, byte[] bytes) throws IOException {
-		System.out.printf("Received packet %s from %s\n", new String(bytes), peer);
+	public void onPacketReceived(TCPPeer peer, NetPacket packet) throws IOException {
+		System.out.printf("Received packet %s from %s\n", packet.asString(), peer);
 		peer.send("Hello Client!");
 	}
 
@@ -132,8 +134,8 @@ public class ExampleTCPClient extends TCPClient {
 	}
 
 	@Override
-	public void onPacketReceived(byte[] bytes) throws IOException {
-		System.out.printf("Received packet %s\n", new String(bytes));
+	public void onPacketReceived(NetPacket packet) throws IOException {
+		System.out.printf("Received packet %s\n", packet.asString());
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -175,8 +177,8 @@ public class ExampleUDPServer extends UDPServer {
 	}
 
 	@Override
-	public void onPacketReceived(UDPPeer peer, byte[] bytes) throws IOException {
-		System.out.printf("Received packet %s from %s\n", new String(bytes), peer);
+	public void onPacketReceived(UDPPeer peer, NetPacket packet) throws IOException {
+		System.out.printf("Received packet %s from %s\n", packet.asString(), peer);
 		peer.send("Hello Client!");
 	}
 
@@ -218,8 +220,8 @@ public class ExampleUDPClient extends UDPClient {
 	}
 
 	@Override
-	public void onPacketReceived(byte[] bytes) throws IOException {
-		System.out.printf("Received packet %s\n", new String(bytes));
+	public void onPacketReceived(NetPacket packet) throws IOException {
+		System.out.printf("Received packet %s\n", packet.asString());
 	}
 
 	public static void main(String[] args) throws IOException {

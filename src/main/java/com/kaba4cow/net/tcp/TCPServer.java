@@ -2,7 +2,6 @@ package com.kaba4cow.net.tcp;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -13,8 +12,10 @@ import java.util.Objects;
 import java.util.Set;
 
 import com.kaba4cow.net.core.NetNode;
+import com.kaba4cow.net.core.NetPacket;
+import com.kaba4cow.net.core.NetPacketHandler;
 import com.kaba4cow.net.core.NetPeer;
-import com.kaba4cow.net.core.NetPeerPacketReceiver;
+import com.kaba4cow.net.core.NetPeerPacketHandler;
 import com.kaba4cow.net.core.NetState;
 import com.kaba4cow.net.tcp.TCPServer.TCPPeer;
 
@@ -22,7 +23,7 @@ import com.kaba4cow.net.tcp.TCPServer.TCPPeer;
  * Represents a TCP server that listens for incoming connections from clients, manages active client connections, and handles
  * packet reception. The server accepts new connections, reads data, and provides methods to send data to connected peers.
  */
-public abstract class TCPServer extends NetNode<ServerSocketChannel> implements NetPeerPacketReceiver<TCPPeer> {
+public abstract class TCPServer extends NetNode<ServerSocketChannel> implements NetPeerPacketHandler<TCPPeer> {
 
 	private final Set<TCPPeer> peers;
 
@@ -103,7 +104,7 @@ public abstract class TCPServer extends NetNode<ServerSocketChannel> implements 
 					} else {
 						byte[] bytes = new byte[getBuffer().flip().remaining()];
 						getBuffer().get(bytes);
-						onPacketReceived(peer, bytes);
+						onPacketReceived(peer, NetPacket.fromByteArray(bytes));
 					}
 				}
 			} catch (IOException exception) {
@@ -115,12 +116,21 @@ public abstract class TCPServer extends NetNode<ServerSocketChannel> implements 
 	}
 
 	/**
-	 * Returns an unmodifiable set of all connected peers.
+	 * Returns an unmodifiable set of connected peers.
 	 *
 	 * @return the set of peers connected to the server
 	 */
 	public Set<TCPPeer> getPeers() {
 		return Collections.unmodifiableSet(peers);
+	}
+
+	/**
+	 * Returns the number of connected peers.
+	 *
+	 * @return the number of peers connected to the server
+	 */
+	public int getPeerCount() {
+		return peers.size();
 	}
 
 	@Override
@@ -131,7 +141,7 @@ public abstract class TCPServer extends NetNode<ServerSocketChannel> implements 
 	/**
 	 * Represents a single connected peer (client) of the TCP server.
 	 */
-	public final class TCPPeer implements NetPeer {
+	public final class TCPPeer implements NetPeer, NetPacketHandler {
 
 		private final SocketChannel channel;
 		private final SocketAddress address;
@@ -143,9 +153,20 @@ public abstract class TCPServer extends NetNode<ServerSocketChannel> implements 
 		}
 
 		@Override
-		public TCPPeer send(byte[] bytes) throws IOException {
+		public void onPacketSent(NetPacket packet) throws IOException {
+			getEnclosingInstance().onPacketSent(this, packet);
+		}
+
+		@Override
+		public void onPacketReceived(NetPacket packet) throws IOException {
+			getEnclosingInstance().onPacketReceived(this, packet);
+		}
+
+		@Override
+		public TCPPeer send(NetPacket packet) throws IOException {
 			requireState(NetState.RUNNING);
-			channel.write(ByteBuffer.wrap(bytes));
+			channel.write(packet.asByteBuffer());
+			onPacketSent(packet);
 			return this;
 		}
 
